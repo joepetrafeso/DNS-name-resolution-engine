@@ -1,12 +1,12 @@
-CS3753 (Operating Systems)
-Spring 2012
-University of Colorado Boulder
-Programming Assignment 2
-Public Code
+#DNS Name Resolution Engine
+###CS3753 (Operating Systems)
+###Spring 2012
+###University of Colorado Boulder
+###Programming Assignment 2
+###Public Code
 
-By Andy Sayler - 2012
+Assignment By Andy Sayler - 2012
 http://www.andysayler.com
-
 With help from:
 Junho Ahn - 2012
 
@@ -15,27 +15,27 @@ Adopted from previous code by
  Wei-Te Chen <weite.chen@colorado.edu> - 2011
  Blaise Barney - pthread-hello.c
 
----Folders---
+##Folders
 input - names*.txt input files
 handout - Assignment description and documentation
 
----Executables---
+##Executables
 lookup - A basic non-threaded DNS query-er
 queueTest - Unit test program for queue
 pthread-hello ; A simple threaded "Hello World" program
 
----Examples---
+##Examples
 Build:
- make
+ `make`
 
 Clean:
- make clean
+ `make clean`
 
 Lookup DNS info for all names files in input folder:
- ./lookup input/names*.txt results.txt
+ `./lookup input/names*.txt results.txt`
 
 Check queue for memory leaks:
- valgrind ./queueTest
+ `valgrind ./queueTest`
 
 Run pthread-hello
- ./pthread-hello
+ `./pthread-hello`
