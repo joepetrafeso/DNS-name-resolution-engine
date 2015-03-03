@@ -16,11 +16,13 @@
 #include <errno.h>
 
 #include "util.h"
+#include "queue.h"
 
 #define MINARGS 3
 #define USAGE "<inputFilePath> <outputFilePath>"
 #define SBUFSIZE 1025
 #define INPUTFS "%1024s"
+#define TEST_SIZE 10
 
 int main(int argc, char* argv[]){
 	/* Local Vars */
@@ -46,6 +48,24 @@ int main(int argc, char* argv[]){
     }
 
     // Build Queue
+    /* Setup local vars */
+    queue q;
+    const int qSize = TEST_SIZE;
+    int* payload_in[TEST_SIZE];
+    int* payload_out[TEST_SIZE];
+    /* Setup payload_in as int* array from
+     * 0 to TEST_SIZE-1 */
+    for(i=0; i<TEST_SIZE; i++){
+		payload_in[i] = malloc(sizeof(*(payload_in[i])));
+		*(payload_in[i]) = i;
+    }
+    /* Setup payload_out as int* array of NULL */
+    for(i=0; i<TEST_SIZE; i++){
+		payload_out[i] = NULL;
+    }
+    if(queue_init(&q, qSize) == QUEUE_FAILURE){
+		fprintf(stderr, "error: queue_init failed!\n");
+    }
 
 
     // Create Request Thread Pool to read name files
@@ -87,6 +107,14 @@ int main(int argc, char* argv[]){
 
     /* Close Output File */
     fclose(outputfp);
+
+    /* Cleanup Queue */
+    queue_cleanup(&q);
+
+    /* Cleanup payload_in */
+    for(i=0; i<TEST_SIZE; i++){
+	free(payload_in[i]);
+    }
 
     return EXIT_SUCCESS;
 }
