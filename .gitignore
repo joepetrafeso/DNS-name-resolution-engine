@@ -1,2 +1,6 @@
 *.zip
 *.o
+lookup
+pthread-hello
+queueTest
+multi-lookup

@@ -9,6 +9,9 @@ all: lookup queueTest pthread-hello
 lookup: lookup.o queue.o util.o
 	$(CC) $(LFLAGS) $^ -o $@
 
+multi-lookup: multi-lookup.o queue.o util.o
+	$(CC) $(LFLAGS) $^ -o $@
+
 queueTest: queueTest.o queue.o
 	$(CC) $(LFLAGS) $^ -o $@
 
@@ -16,6 +19,9 @@ pthread-hello: pthread-hello.o
 	$(CC) $(LFLAGS) $^ -o $@
 
 lookup.o: lookup.c
+	$(CC) $(CFLAGS) $<
+
+multi-lookup.o: multi-lookup.c
 	$(CC) $(CFLAGS) $<
 
 queueTest.o: queueTest.c
