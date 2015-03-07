@@ -37,7 +37,7 @@ struct ResolveData{
 };
 
 
-void* ReadFile(void* threadarg){
+void* RequestThread(void* threadarg){
     struct RequestData * requestData;
     char hostname[SBUFSIZE];
     FILE* inputfp;
@@ -67,7 +67,7 @@ void* ReadFile(void* threadarg){
                 payload = malloc(SBUFSIZE);
                 strncpy(payload, hostname, SBUFSIZE);
                 printf("%s\n", payload);
-                queue_push(q, &payload);
+                queue_push(q, payload);
                 completed = 1;
             }
             else{
@@ -84,11 +84,35 @@ void* ReadFile(void* threadarg){
     // pthread_exit(NULL);
 }
 
+void* ResolveThread(void* threadarg){
+    struct ResolveData * resolveData;
+    FILE* outputfp;
+    char firstipstr[INET6_ADDRSTRLEN];
+    char * hostname;
+    queue* q;
+
+
+    resolveData = (struct ResolveData *) threadarg;
+    outputfp = resolveData->outputFile;
+    q = resolveData->q;
+
+    while (queue_is_empty(q) == 0){
+        hostname = queue_pop(q);
+        if(dnslookup(hostname, firstipstr, sizeof(firstipstr)) == UTIL_FAILURE){
+            fprintf(stderr, "dnslookup error: %s\n", hostname);
+            strncpy(firstipstr, "", sizeof(firstipstr));
+        }
+        printf("Host:%s\n", hostname);
+        printf("IP:%s\n", firstipstr);
+    }
+
+    pthread_exit(NULL);
+}
+
 
 int main(int argc, char* argv[]){
 	/* Local Vars */
     FILE* outputfp = NULL;
-    char firstipstr[INET6_ADDRSTRLEN];
 
     /* Check Arguments */
     if(argc < MINARGS){
@@ -111,19 +135,21 @@ int main(int argc, char* argv[]){
 		fprintf(stderr, "error: queue_init failed!\n");
     }
 
-    // Create Request Thread Pool to read name files
-    /* Setup Local Vars */
-    struct RequestData requestthreads[NUM_THREADS];
-    pthread_t threads[NUM_THREADS];
+
+    /////////////////////////////////////////////////
+    // Create REQUEST Thread Pool
+    /////////////////////////////////////////////////
+    struct RequestData requestData[NUM_THREADS];
+    pthread_t requestThreads[NUM_THREADS];
     int rc;
     long t;
 
     /* Spawn REQUEST threads */
     for(t=1; t<(argc-1) && t<NUM_THREADS; t++){
-        requestthreads[t].q = &q;
-        requestthreads[t].inputFile = fopen(argv[t], "r");
+        requestData[t].q = &q;
+        requestData[t].inputFile = fopen(argv[t], "r");
 		printf("Creating REQUEST Thread %ld\n", t);
-		rc = pthread_create(&(threads[t]), NULL, ReadFile, &(requestthreads[t]));
+		rc = pthread_create(&(requestThreads[t]), NULL, RequestThread, &(requestData[t]));
 		if (rc){
 		    printf("ERROR; return code from pthread_create() is %d\n", rc);
 		    exit(EXIT_FAILURE);
@@ -132,20 +158,34 @@ int main(int argc, char* argv[]){
 
     //Join Threads to detect completion
     for(t=0;t<NUM_THREADS;t++){
-        pthread_join(threads[t],NULL);
+        pthread_join(requestThreads[t],NULL);
     }
-    usleep(1000000);
 
-    while (queue_is_empty(&q) == 0){
-        char * test = malloc(SBUFSIZE);
-        test = queue_pop(&q);
-        // if(dnslookup(test, firstipstr, sizeof(firstipstr))
-        //    == UTIL_FAILURE){
-        //     fprintf(stderr, "dnslookup error: %s\n", test);
-        //     strncpy(firstipstr, "", sizeof(firstipstr));
-        // }
-        printf("%c test\n", *test);
+    /////////////////////////////////////////////////
+    // Create RESOLVE Thread Pool
+    /////////////////////////////////////////////////
+    struct ResolveData resolveData;
+    pthread_t resolveThreads[NUM_THREADS];
+    int rc2;
+    long t2;
 
+    resolveData.q = &q;
+    resolveData.outputFile = outputfp;
+
+    /* Spawn RESOLVE threads */
+    for(t2=1; t2<2; t2++){
+
+        printf("Creating RESOLVER Thread %ld\n", t2);
+        rc2 = pthread_create(&(resolveThreads[t2]), NULL, ResolveThread, &resolveData);
+        if (rc2){
+            printf("ERROR; return code from pthread_create() is %d\n", rc2);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    //Join Threads to detect completion
+    for(t=0;t<NUM_THREADS;t++){
+        pthread_join(resolveThreads[t],NULL);
     }
 
     /* Close Output File */
@@ -153,11 +193,6 @@ int main(int argc, char* argv[]){
 
     /* Cleanup Queue */
     queue_cleanup(&q);
-
-    /* Cleanup payload_in */
- //    for(i=0; i<TEST_SIZE; i++){
-	// free(payload_in[i]);
- //    }
 
     return EXIT_SUCCESS;
 }
