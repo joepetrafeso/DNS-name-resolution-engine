@@ -90,7 +90,7 @@ void* RequestThread(void* threadarg){
 
             // Wait if not completed
             if (!completed){
-                usleep((rand()%100)*10000);
+                usleep((rand()%100)*100000);
                 // TODO - Remove this when we get locks in place
                 // break;
             }
