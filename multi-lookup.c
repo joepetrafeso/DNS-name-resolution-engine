@@ -7,13 +7,15 @@
  * Description:
  * 	This file contains the reference non-threaded
  *      solution to this assignment.
- *  
+ *
  */
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #include "util.h"
 #include "queue.h"
@@ -23,21 +25,71 @@
 #define SBUFSIZE 1025
 #define INPUTFS "%1024s"
 #define TEST_SIZE 10
+#define NUM_THREADS 10
+
+struct RequestData{
+    FILE* inputFile;
+    queue* q;
+};
+struct ResolveData{
+    FILE* outputFile;
+    queue* q;
+};
 
 
- void* ReadFile(void* threadid){
- 	
- }
+void* ReadFile(void* threadarg){
+    struct RequestData * requestData;
+    char hostname[SBUFSIZE];
+    FILE* inputfp;
+    queue* q;
+    char* payload;
+
+    requestData = (struct RequestData *) threadarg;
+    inputfp = requestData->inputFile;
+    q = requestData->q;
+    printf("queue location %p\n", q);
+
+    // Open Input File
+    if(!inputfp){
+        printf("Error Opening Input File");
+        pthread_exit(NULL);
+    }
+
+    // Add to queue
+    printf("File being read\n");
+    while(fscanf(inputfp, INPUTFS, hostname) > 0){
+        // printf("%s\n", hostname);
+        int completed = 0;
+        // grab queue
+        while(completed == 0){
+            // Check if queue is full
+            if (!queue_is_full(q)){
+                payload = malloc(SBUFSIZE);
+                strncpy(payload, hostname, SBUFSIZE);
+                printf("%s\n", payload);
+                queue_push(q, &payload);
+                completed = 1;
+            }
+            else{
+                // release queue
+                break;
+                usleep((rand()%100)*10000+1000000);
+                // grab queue
+            }
+        }
+        //release queue
+    }
+    fclose(inputfp);
+    return NULL;
+    // pthread_exit(NULL);
+}
+
 
 int main(int argc, char* argv[]){
 	/* Local Vars */
-    FILE* inputfp = NULL;
     FILE* outputfp = NULL;
-    char hostname[SBUFSIZE];
-    char errorstr[SBUFSIZE];
     char firstipstr[INET6_ADDRSTRLEN];
-    int i;
-    
+
     /* Check Arguments */
     if(argc < MINARGS){
 		fprintf(stderr, "Not enough arguments: %d\n", (argc - 1));
@@ -53,81 +105,48 @@ int main(int argc, char* argv[]){
     }
 
     // Build Queue
-    /* Setup local vars */
     queue q;
     const int qSize = TEST_SIZE;
-    int* payload_in[TEST_SIZE];
-    int* payload_out[TEST_SIZE];
-    /* Setup payload_in as int* array from
-     * 0 to TEST_SIZE-1 */
-    for(i=0; i<TEST_SIZE; i++){
-		payload_in[i] = malloc(sizeof(*(payload_in[i])));
-		*(payload_in[i]) = i;
-    }
-    /* Setup payload_out as int* array of NULL */
-    for(i=0; i<TEST_SIZE; i++){
-		payload_out[i] = NULL;
-    }
     if(queue_init(&q, qSize) == QUEUE_FAILURE){
 		fprintf(stderr, "error: queue_init failed!\n");
     }
 
-
     // Create Request Thread Pool to read name files
     /* Setup Local Vars */
+    struct RequestData requestthreads[NUM_THREADS];
     pthread_t threads[NUM_THREADS];
     int rc;
     long t;
-    long cpyt[NUM_THREADS];
-    /* Spawn NUM_THREADS threads */
-    for(t=0;t<NUM_THREADS;t++){
+
+    /* Spawn REQUEST threads */
+    for(t=1; t<(argc-1) && t<NUM_THREADS; t++){
+        requestthreads[t].q = &q;
+        requestthreads[t].inputFile = fopen(argv[t], "r");
 		printf("Creating REQUEST Thread %ld\n", t);
-		cpyt[t] = t;
-		rc = pthread_create(&(threads[t]), NULL, ReadFile, &(cpyt[t]));
+		rc = pthread_create(&(threads[t]), NULL, ReadFile, &(requestthreads[t]));
 		if (rc){
 		    printf("ERROR; return code from pthread_create() is %d\n", rc);
 		    exit(EXIT_FAILURE);
 		}
     }
-    /* Wait for All Theads to Finish */
-  //   for(t=0;t<NUM_THREADS;t++){
-		// pthread_join(threads[t],NULL);
-  //   }
-    printf("All of the threads were completed!\n");
 
-    // Create Resolver Thread Pool to read from queue and resolve dns
-
-
-    // DONT DO FROM HERE==============================
-    /* Loop Through Input Files */
-    for(i=1; i<(argc-1); i++){
-	
-		/* Open Input File */
-		inputfp = fopen(argv[i], "r");
-		if(!inputfp){
-		    sprintf(errorstr, "Error Opening Input File: %s", argv[i]);
-		    perror(errorstr);
-		    break;
-		}
-
-		/* Read File and Process*/
-		while(fscanf(inputfp, INPUTFS, hostname) > 0){
-		
-		    /* Lookup hostname and get IP string */
-		    if(dnslookup(hostname, firstipstr, sizeof(firstipstr))
-		       == UTIL_FAILURE){
-				fprintf(stderr, "dnslookup error: %s\n", hostname);
-				strncpy(firstipstr, "", sizeof(firstipstr));
-		    }
-		
-		    /* Write to Output File */
-		    fprintf(outputfp, "%s,%s\n", hostname, firstipstr);
-		}
-
-		/* Close Input File */
-		fclose(inputfp);
+    //Join Threads to detect completion
+    for(t=0;t<NUM_THREADS;t++){
+        pthread_join(threads[t],NULL);
     }
-    //DONT DO ABOVE HERE ==============================
+    usleep(1000000);
+
+    while (queue_is_empty(&q) == 0){
+        char * test = malloc(SBUFSIZE);
+        test = queue_pop(&q);
+        // if(dnslookup(test, firstipstr, sizeof(firstipstr))
+        //    == UTIL_FAILURE){
+        //     fprintf(stderr, "dnslookup error: %s\n", test);
+        //     strncpy(firstipstr, "", sizeof(firstipstr));
+        // }
+        printf("%c test\n", *test);
+
+    }
 
     /* Close Output File */
     fclose(outputfp);
@@ -136,9 +155,9 @@ int main(int argc, char* argv[]){
     queue_cleanup(&q);
 
     /* Cleanup payload_in */
-    for(i=0; i<TEST_SIZE; i++){
-	free(payload_in[i]);
-    }
+ //    for(i=0; i<TEST_SIZE; i++){
+	// free(payload_in[i]);
+ //    }
 
     return EXIT_SUCCESS;
 }
