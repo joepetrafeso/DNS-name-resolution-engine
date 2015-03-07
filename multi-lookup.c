@@ -116,8 +116,8 @@ void* ResolveThread(void* threadarg){
     q = resolveData->q;
 
     int emptyQueue = 0;
-    int resolved = 0;
-    while (!requestThreadsComplete){
+    while (!emptyQueue || !requestThreadsComplete){
+    	int resolved = 0;
         pthread_mutex_lock(&readBlock);
         pthread_mutex_lock(&mutex);
         readCount++;
@@ -128,12 +128,14 @@ void* ResolveThread(void* threadarg){
         pthread_mutex_unlock(&readBlock);
 
         // Pop off the queue one at a time
-        pthread_mutex_lock(&queueBlock);\
+        pthread_mutex_lock(&queueBlock);
         emptyQueue = queue_is_empty(q);
         if(!emptyQueue){
             hostname = queue_pop(q);
-            printf("Hostname is : %s\n", hostname);
-            resolved = 1;
+            if (hostname != NULL){
+	            printf("Hostname is : %s\n", hostname);
+	            resolved = 1;
+        	}
         }
         pthread_mutex_unlock(&queueBlock);
 
@@ -144,7 +146,7 @@ void* ResolveThread(void* threadarg){
         }
         pthread_mutex_unlock(&mutex);
 
-        if(!resolved){
+        if(resolved){
             if(dnslookup(hostname, firstipstr, sizeof(firstipstr)) == UTIL_FAILURE){
                 fprintf(stderr, "dnslookup error: %s\n", hostname);
                 strncpy(firstipstr, "", sizeof(firstipstr));
@@ -227,7 +229,7 @@ int main(int argc, char* argv[]){
     resolveData.outputFile = outputfp;
 
     /* Spawn RESOLVE threads */
-    for(t2=1; t2<3; t2++){
+    for(t2=1; t2<NUM_THREADS; t2++){
 
         printf("Creating RESOLVER Thread %ld\n", t2);
         rc2 = pthread_create(&(resolveThreads[t2]), NULL, ResolveThread, &resolveData);
