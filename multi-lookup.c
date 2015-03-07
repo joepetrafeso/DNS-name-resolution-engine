@@ -55,12 +55,12 @@ void* RequestThread(void* threadarg){
     FILE* inputfp;
     queue* q;
     char* payload;
-    long threadNumber;
+    // long threadNumber;
 
     requestData = (struct RequestData *) threadarg;
     inputfp = requestData->inputFile;
     q = requestData->q;
-    threadNumber = requestData->threadNumber;
+    // threadNumber = requestData->threadNumber;
 
     // Open Input File
     if(!inputfp){
@@ -69,7 +69,7 @@ void* RequestThread(void* threadarg){
     }
 
     // Add to queue
-    printf("File being read\n");
+    // printf("File being read\n");
     while(fscanf(inputfp, INPUTFS, hostname) > 0){
         // printf("%s\n", hostname);
         int completed = 0;
@@ -80,7 +80,7 @@ void* RequestThread(void* threadarg){
             if (!queue_is_full(q)){
                 payload = malloc(SBUFSIZE);
                 strncpy(payload, hostname, SBUFSIZE);
-                printf("%s\n", payload);
+                // printf("%s\n", payload);
                 queue_push(q, payload);
                 completed = 1;
             }
@@ -98,7 +98,7 @@ void* RequestThread(void* threadarg){
         //release queue
     }
     fclose(inputfp);
-    printf("Completing Request thread %ld\n", threadNumber);
+    // printf("Completing Request thread %ld\n", threadNumber);
     return NULL;
     // pthread_exit(NULL);
 }
@@ -133,7 +133,7 @@ void* ResolveThread(void* threadarg){
         if(!emptyQueue){
             hostname = queue_pop(q);
             if (hostname != NULL){
-	            printf("Hostname is : %s\n", hostname);
+	            // printf("Hostname is : %s\n", hostname);
 	            resolved = 1;
         	}
         }
@@ -147,24 +147,30 @@ void* ResolveThread(void* threadarg){
         pthread_mutex_unlock(&mutex);
 
         if(resolved){
-            if(dnslookup(hostname, firstipstr, sizeof(firstipstr)) == UTIL_FAILURE){
+        	queue dnsList;
+        	queue_init(&dnsList, 50);
+            if(dnslookupall(hostname, firstipstr, sizeof(firstipstr), &dnsList) == UTIL_FAILURE){
                 fprintf(stderr, "dnslookup error: %s\n", hostname);
                 strncpy(firstipstr, "", sizeof(firstipstr));
             }
-            printf("Host:%s\n", hostname);
-            printf("IP:%s\n", firstipstr);
-
-            /* Write to Output File */
-            pthread_mutex_lock(&reportBlock);
-            fprintf(outputfp, "%s,%s\n", hostname, firstipstr);
+            fprintf(outputfp, "%s", hostname);
+    		char * element;
+    		pthread_mutex_lock(&reportBlock);
+            while( (element = (char *) queue_pop(&dnsList)) != NULL){
+		    	// printf("Off Queue: %s\n", element);
+		    	fprintf(outputfp, ",%s", element);
+		    	free(element);
+		    }
+		    fprintf(outputfp, "\n");
             pthread_mutex_unlock(&reportBlock);
 		    free(hostname);
+		    queue_cleanup(&dnsList);
         }
 
     }
 
 
-    printf("Complete Resolve thread\n");
+    //printf("Complete Resolve thread\n");
 
     return NULL;
     // pthread_exit(NULL);
@@ -210,7 +216,7 @@ int main(int argc, char* argv[]){
         requestData[t].q = &q;
         requestData[t].inputFile = fopen(argv[t], "r");
         requestData[t].threadNumber = t;
-		printf("Creating REQUEST Thread %ld\n", t);
+		//printf("Creating REQUEST Thread %ld\n", t);
 		rc = pthread_create(&(requestThreads[t]), NULL, RequestThread, &(requestData[t]));
 		if (rc){
 		    printf("ERROR; return code from pthread_create() is %d\n", rc);
@@ -233,7 +239,7 @@ int main(int argc, char* argv[]){
     /* Spawn RESOLVE threads */
     for(t2=1; t2<NUM_THREADS; t2++){
 
-        printf("Creating RESOLVER Thread %ld\n", t2);
+        // printf("Creating RESOLVER Thread %ld\n", t2);
         rc2 = pthread_create(&(resolveThreads[t2]), NULL, ResolveThread, &resolveData);
         if (rc2){
             printf("ERROR; return code from pthread_create() is %d\n", rc2);

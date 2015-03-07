@@ -26,6 +26,8 @@
 #include <sys/socket.h>
 #include <netdb.h>
 
+#include "queue.h"
+
 #define UTIL_FAILURE -1
 #define UTIL_SUCCESS 0
 
@@ -36,5 +38,8 @@
 int dnslookup(const char* hostname,
 	      char* firstIPstr,
 	      int maxSize);
-
+int dnslookupall(const char* hostname, 
+			char* firstIPstr, 
+			int maxSize, 
+			queue* q);
 #endif
