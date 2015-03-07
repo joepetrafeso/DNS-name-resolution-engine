@@ -158,9 +158,11 @@ void* ResolveThread(void* threadarg){
             pthread_mutex_lock(&reportBlock);
             fprintf(outputfp, "%s,%s\n", hostname, firstipstr);
             pthread_mutex_unlock(&reportBlock);
+		    free(hostname);
         }
 
     }
+
 
     printf("Complete Resolve thread\n");
 
