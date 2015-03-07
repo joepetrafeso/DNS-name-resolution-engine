@@ -24,6 +24,11 @@
 #define INPUTFS "%1024s"
 #define TEST_SIZE 10
 
+
+ void* ReadFile(void* threadid){
+ 	
+ }
+
 int main(int argc, char* argv[]){
 	/* Local Vars */
     FILE* inputfp = NULL;
@@ -69,7 +74,26 @@ int main(int argc, char* argv[]){
 
 
     // Create Request Thread Pool to read name files
-
+    /* Setup Local Vars */
+    pthread_t threads[NUM_THREADS];
+    int rc;
+    long t;
+    long cpyt[NUM_THREADS];
+    /* Spawn NUM_THREADS threads */
+    for(t=0;t<NUM_THREADS;t++){
+		printf("Creating REQUEST Thread %ld\n", t);
+		cpyt[t] = t;
+		rc = pthread_create(&(threads[t]), NULL, ReadFile, &(cpyt[t]));
+		if (rc){
+		    printf("ERROR; return code from pthread_create() is %d\n", rc);
+		    exit(EXIT_FAILURE);
+		}
+    }
+    /* Wait for All Theads to Finish */
+  //   for(t=0;t<NUM_THREADS;t++){
+		// pthread_join(threads[t],NULL);
+  //   }
+    printf("All of the threads were completed!\n");
 
     // Create Resolver Thread Pool to read from queue and resolve dns
 
