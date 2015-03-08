@@ -46,8 +46,7 @@ pthread_mutex_t queueBlock;
 pthread_mutex_t reportBlock;
 
 int requestThreadsComplete = 0;
-
-
+int readCount = 0;
 
 
 void* RequestThread(void* threadarg){
@@ -117,8 +116,7 @@ void* ResolveThread(void* threadarg){
     q = resolveData->q;
 
     int resolved = 0;
-    int readCount = 0;
-    while (!resolved){
+    while (!resolved || !requestThreadsComplete){
         pthread_mutex_lock(&readBlock);
         pthread_mutex_lock(&mutex);
         readCount++;
@@ -157,12 +155,9 @@ void* ResolveThread(void* threadarg){
             pthread_mutex_unlock(&reportBlock);
         }
 
-        if (requestThreadsComplete && resolved){
-            break;
-        }
-
     }
 
+    printf("Complete Resolve thread\n");
 
     return NULL;
     // pthread_exit(NULL);
@@ -229,7 +224,7 @@ int main(int argc, char* argv[]){
     resolveData.outputFile = outputfp;
 
     /* Spawn RESOLVE threads */
-    for(t2=1; t2<NUM_THREADS; t2++){
+    for(t2=1; t2<3; t2++){
 
         printf("Creating RESOLVER Thread %ld\n", t2);
         rc2 = pthread_create(&(resolveThreads[t2]), NULL, ResolveThread, &resolveData);
@@ -245,7 +240,7 @@ int main(int argc, char* argv[]){
     requestThreadsComplete = 1;
 
     //Join Threads to detect completion
-    for(t=0;t<NUM_THREADS;t++){
+    for(t=1; t<NUM_THREADS; t++){
         pthread_join(resolveThreads[t],NULL);
     }
 
