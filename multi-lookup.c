@@ -115,8 +115,9 @@ void* ResolveThread(void* threadarg){
     outputfp = resolveData->outputFile;
     q = resolveData->q;
 
+    int emptyQueue = 0;
     int resolved = 0;
-    while (!resolved || !requestThreadsComplete){
+    while (!requestThreadsComplete){
         pthread_mutex_lock(&readBlock);
         pthread_mutex_lock(&mutex);
         readCount++;
@@ -127,10 +128,12 @@ void* ResolveThread(void* threadarg){
         pthread_mutex_unlock(&readBlock);
 
         // Pop off the queue one at a time
-        pthread_mutex_lock(&queueBlock);
-        resolved = queue_is_empty(q);
-        if(!resolved){
+        pthread_mutex_lock(&queueBlock);\
+        emptyQueue = queue_is_empty(q);
+        if(!emptyQueue){
             hostname = queue_pop(q);
+            printf("Hostname is : %s\n", hostname);
+            resolved = 1;
         }
         pthread_mutex_unlock(&queueBlock);
 
