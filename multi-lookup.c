@@ -47,6 +47,7 @@ pthread_mutex_t reportBlock;
 
 int requestThreadsComplete = 0;
 int readCount = 0;
+int debug = 1;
 
 
 void* RequestThread(void* threadarg){
@@ -55,12 +56,12 @@ void* RequestThread(void* threadarg){
     FILE* inputfp;
     queue* q;
     char* payload;
-    // long threadNumber;
+    long threadNumber;
 
     requestData = (struct RequestData *) threadarg;
     inputfp = requestData->inputFile;
     q = requestData->q;
-    // threadNumber = requestData->threadNumber;
+    threadNumber = requestData->threadNumber;
 
     // Open Input File
     if(!inputfp){
@@ -69,9 +70,10 @@ void* RequestThread(void* threadarg){
     }
 
     // Add to queue
-    // printf("File being read\n");
+    if (debug){
+    	printf("File being read\n");
+    }
     while(fscanf(inputfp, INPUTFS, hostname) > 0){
-        // printf("%s\n", hostname);
         int completed = 0;
         while(!completed){
             // Check if queue is full
@@ -80,7 +82,10 @@ void* RequestThread(void* threadarg){
             if (!queue_is_full(q)){
                 payload = malloc(SBUFSIZE);
                 strncpy(payload, hostname, SBUFSIZE);
-                // printf("%s\n", payload);
+
+                if(debug){
+                	printf("Adding Payload to Queue:%s\n", payload);
+                }
                 queue_push(q, payload);
                 completed = 1;
             }
@@ -91,16 +96,16 @@ void* RequestThread(void* threadarg){
             // Wait if not completed
             if (!completed){
                 usleep((rand()%100)*100000);
-                // TODO - Remove this when we get locks in place
-                // break;
             }
         }
         //release queue
     }
     fclose(inputfp);
-    // printf("Completing Request thread %ld\n", threadNumber);
+
+    if(debug){
+    	printf("Completing Request thread %ld\n", threadNumber);
+	}
     return NULL;
-    // pthread_exit(NULL);
 }
 
 void* ResolveThread(void* threadarg){
@@ -133,7 +138,9 @@ void* ResolveThread(void* threadarg){
         if(!emptyQueue){
             hostname = queue_pop(q);
             if (hostname != NULL){
-	            // printf("Hostname is : %s\n", hostname);
+            	if(debug){
+            		printf("Reading From Queue: %s\n", hostname);
+            	}
 	            resolved = 1;
         	}
         }
@@ -157,7 +164,6 @@ void* ResolveThread(void* threadarg){
     		char * element;
     		pthread_mutex_lock(&reportBlock);
             while( (element = (char *) queue_pop(&dnsList)) != NULL){
-		    	// printf("Off Queue: %s\n", element);
 		    	fprintf(outputfp, ",%s", element);
 		    	free(element);
 		    }
@@ -169,11 +175,11 @@ void* ResolveThread(void* threadarg){
 
     }
 
-
-    //printf("Complete Resolve thread\n");
+    if(debug){
+    	printf("Complete Resolve thread\n");
+    }
 
     return NULL;
-    // pthread_exit(NULL);
 }
 
 
@@ -221,7 +227,9 @@ int main(int argc, char* argv[]){
         requestData[t].q = &q;
         requestData[t].inputFile = fopen(argv[t+1], "r");
         requestData[t].threadNumber = t;
-		//printf("Creating REQUEST Thread %ld\n", t);
+        if (debug){
+        	printf("Creating REQUEST Thread %ld\n", t);
+        }
 		rc = pthread_create(&(requestThreads[t]), NULL, RequestThread, &(requestData[t]));
 		if (rc){
 		    printf("ERROR; return code from pthread_create() is %d\n", rc);
@@ -245,8 +253,9 @@ int main(int argc, char* argv[]){
     /* Spawn RESOLVE threads */
 
     for(t2=0; t2<cpuCoreCount; t2++){
-
-        // printf("Creating RESOLVER Thread %ld\n", t2);
+    	if (debug){
+    		printf("Creating RESOLVER Thread %ld\n", t2);
+    	}
         rc2 = pthread_create(&(resolveThreads[t2]), NULL, ResolveThread, &resolveData);
         if (rc2){
             printf("ERROR; return code from pthread_create() is %d\n", rc2);
@@ -254,14 +263,20 @@ int main(int argc, char* argv[]){
         }
     }
     //Join Threads to detect completion
-    for(t=2; t<(argc-2) && t<NUM_THREADS; t++){
+    for(t=0; t<(argc-2) && t<NUM_THREADS; t++){
         pthread_join(requestThreads[t],NULL);
+    }
+    if (debug){
+    	printf("All Request threads have FINISHED!\n");
     }
     requestThreadsComplete = 1;
 
     //Join Threads to detect completion
     for(t=0; t<cpuCoreCount; t++){
         pthread_join(resolveThreads[t],NULL);
+    }
+    if (debug){
+    	printf("All Resolver threads have FINISHED!\n");
     }
 
     /* Close Output File */

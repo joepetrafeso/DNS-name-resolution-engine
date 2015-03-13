@@ -34,6 +34,9 @@ Check multi-lookup for memory leaks:
 Run pthread-hello
  `./pthread-hello`
 
+For Debug:
+ * change debug variable to 1 in global variables and remake
+
 ##Included Files
 
 ###My Executable

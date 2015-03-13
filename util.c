@@ -14,8 +14,6 @@
 
 #define MAX_DNS_RESULTS 50
 
-#define UTIL_DEBUG true
-
 void addToDnsList(queue* q, char * ip){
 	char * ipAddress;
 
@@ -98,7 +96,7 @@ int dnslookupall(const char* hostname, char* firstIPstr, int maxSize, queue* q){
 				perror("Error Converting IP to String");
 				return UTIL_FAILURE;
 			}
-			
+
 			#ifdef UTIL_DEBUG
 			    fprintf(stdout, "IPv6 Address: %s\n", ipv6str);
 			#endif
