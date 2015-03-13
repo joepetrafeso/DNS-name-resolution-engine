@@ -187,6 +187,11 @@ int main(int argc, char* argv[]){
 		fprintf(stderr, "Usage:\n %s %s\n", argv[0], USAGE);
 		return EXIT_FAILURE;
     }
+    if (argc > NUM_THREADS + 1){
+    	fprintf(stderr, "Too many files: %d\n", (argc - 2));
+    	fprintf(stderr, "Usage:\n %s %s\n", argv[0], USAGE);
+		return EXIT_FAILURE;
+    }
 
     /* Open Output File */
     outputfp = fopen(argv[(argc-1)], "w");
@@ -212,9 +217,9 @@ int main(int argc, char* argv[]){
     long t;
 
     /* Spawn REQUEST threads */
-    for(t=1; t<(argc-1) && t<NUM_THREADS; t++){
+    for(t=0; t<(argc-2) && t<NUM_THREADS; t++){
         requestData[t].q = &q;
-        requestData[t].inputFile = fopen(argv[t], "r");
+        requestData[t].inputFile = fopen(argv[t+1], "r");
         requestData[t].threadNumber = t;
 		//printf("Creating REQUEST Thread %ld\n", t);
 		rc = pthread_create(&(requestThreads[t]), NULL, RequestThread, &(requestData[t]));
@@ -229,7 +234,8 @@ int main(int argc, char* argv[]){
     // Create RESOLVE Thread Pool
     /////////////////////////////////////////////////
     struct ResolveData resolveData;
-    pthread_t resolveThreads[NUM_THREADS];
+    int cpuCoreCount = sysconf(_SC_NPROCESSORS_ONLN);
+    pthread_t resolveThreads[cpuCoreCount];
     int rc2;
     long t2;
 
@@ -237,7 +243,8 @@ int main(int argc, char* argv[]){
     resolveData.outputFile = outputfp;
 
     /* Spawn RESOLVE threads */
-    for(t2=1; t2<NUM_THREADS; t2++){
+
+    for(t2=0; t2<cpuCoreCount; t2++){
 
         // printf("Creating RESOLVER Thread %ld\n", t2);
         rc2 = pthread_create(&(resolveThreads[t2]), NULL, ResolveThread, &resolveData);
@@ -247,13 +254,13 @@ int main(int argc, char* argv[]){
         }
     }
     //Join Threads to detect completion
-    for(t=1; t<(argc-1) && t<NUM_THREADS; t++){
+    for(t=2; t<(argc-2) && t<NUM_THREADS; t++){
         pthread_join(requestThreads[t],NULL);
     }
     requestThreadsComplete = 1;
 
     //Join Threads to detect completion
-    for(t=1; t<NUM_THREADS; t++){
+    for(t=0; t<cpuCoreCount; t++){
         pthread_join(resolveThreads[t],NULL);
     }
 

@@ -14,6 +14,8 @@
 
 #define MAX_DNS_RESULTS 50
 
+#define UTIL_DEBUG true
+
 void addToDnsList(queue* q, char * ip){
 	char * ipAddress;
 
@@ -39,8 +41,11 @@ int dnslookupall(const char* hostname, char* firstIPstr, int maxSize, queue* q){
     struct addrinfo* headresult = NULL;
     struct addrinfo* result = NULL;
     struct sockaddr_in* ipv4sock = NULL;
+    struct sockaddr_in6* ipv6sock = NULL;
     struct in_addr* ipv4addr = NULL;
+    struct in6_addr* ipv6addr = NULL;
     char ipv4str[INET_ADDRSTRLEN];
+    char ipv6str[INET6_ADDRSTRLEN];
     char ipstr[INET6_ADDRSTRLEN];
     int addrError = 0;
 
@@ -72,7 +77,7 @@ int dnslookupall(const char* hostname, char* firstIPstr, int maxSize, queue* q){
 			}
 
 			#ifdef UTIL_DEBUG
-			    fprintf(stdout, "bob%s\n", ipv4str);
+			    fprintf(stdout, "%s\n", ipv4str);
 			#endif
 		    strncpy(ipstr, ipv4str, sizeof(ipstr));
 		    ipstr[sizeof(ipstr)-1] = '\0';
@@ -84,11 +89,25 @@ int dnslookupall(const char* hostname, char* firstIPstr, int maxSize, queue* q){
 		}
 		else if(result->ai_addr->sa_family == AF_INET6){
 	    	/* IPv6 Handling */
+
+			ipv6sock = (struct sockaddr_in6*)(result->ai_addr);
+			ipv6addr = &(ipv6sock->sin6_addr);
+
+			if(!inet_ntop(result->ai_family, ipv6addr,
+				  ipv6str, sizeof(ipv6str))){
+				perror("Error Converting IP to String");
+				return UTIL_FAILURE;
+			}
+			
 			#ifdef UTIL_DEBUG
-			    fprintf(stdout, "IPv6 Address: Not Handled\n");
+			    fprintf(stdout, "IPv6 Address: %s\n", ipv6str);
 			#endif
-		    strncpy(ipstr, "UNHANDELED", sizeof(ipstr));
-		    ipstr[sizeof(ipstr)-1] = '\0';
+
+		    // strncpy(ipstr, "UNHANDELED", sizeof(ipstr));
+		    // ipstr[sizeof(ipstr)-1] = '\0';
+		    if(q != NULL){
+		    	addToDnsList(q, ipv6str);
+		    }
 		}
 		else{
 	    	/* Unhandlded Protocol Handling */
